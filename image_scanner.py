@@ -1,16 +1,27 @@
-"""Egyszerű képfelderítő eszköz.
+"""Egyszerű rendszámtáblafelismerő eszköz.
 
 A szkript bejár egy megadott könyvtárat (alapértelmezetten az aktuális
 könyvtárat), és azonosítja a képfájlokat, majd kiírja azok alapvető metaadatait,
 például a fájl nevét, formátumát, méretét és színmódját.
 
-Függőségek:
-    Pillow
-
 Használat:
     python image_scanner.py [--path PATH]
 
+Példák:
+    python image_scanner.py              # Aktuális könyvtár
+    python image_scanner.py --path "Képek"
+    python image_scanner.py -p "C:\\my_images"
+
+Kimenet:
+    Talált kép: C:\\path\\image.jpg
+      Formátum: JPEG
+      Méret: (1920, 1080)
+      Mód: RGB
+
+Függőségek:
+    Pillow (PIL)
 """
+
 import argparse
 import os
 from PIL import Image
