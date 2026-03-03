@@ -16,10 +16,20 @@ This project focuses on developing a robust system for recognizing license plate
 Follow the instructions below to set up the project:
 1. Clone the repository: `git clone <repo_url>`
 2. Install required dependencies.
+
+   *Note: `pytesseract` requires the Tesseract OCR engine installed on your machine.*
 3. Run the application.
 
 ## Usage
-To use the system, upload an image of a vehicle, and the license plate will be automatically detected and recognized.
+A `main.py` szkript parancssori eszköz; például:
+
+```sh
+python main.py --image path/to/photo.jpg
+```
+
+A kimenet a felismert rendszám (ha található), vagy egy figyelmeztetés, hogy nem sikerült detektálni a táblát.
+
+A webes/GUI felület későbbi fejlesztési fázisban valósítható meg.
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
