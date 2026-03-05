@@ -27,15 +27,7 @@ except ImportError as e:
                       "Futtassa: pip install -r requirements.txt") from e
 
 # Tesseract OCR motor elérési útjának beállítása
-tesseract_paths = [
-    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
-]
-
-for path in tesseract_paths:
-    if os.path.exists(path):
-        pyt_module.tesseract_cmd = path
-        break
+pyt_module.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Támogatott karakterek (magyar és nemzetközi rendszámokhoz)
 SUPPORTED_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
@@ -46,14 +38,20 @@ def preprocess_image(image):
     
     Lépések:
     1. Szürkeárnyalatosra konvertálás
-    2. Bilaterális szűrés (zaj csökkentés)
-    3. Canny élérzékelés (adaptív paraméterekkel)
+    2. CLAHE kontrasztjavítás
+    3. Bilaterális szűrés (zaj csökkentés)
+    4. Canny élérzékelés (javított paraméterekkel)
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # CLAHE hozzáadása
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    
     gray = cv2.bilateralFilter(gray, 11, 17, 17)
     
-    # Alacsonyabb threshold: több él detektálásához
-    edged = cv2.Canny(gray, 10, 150)
+    # Javított Canny threshold
+    edged = cv2.Canny(gray, 50, 150)
     
     return edged, gray
 
@@ -63,8 +61,9 @@ def is_valid_plate(cnt, image_width, image_height):
     
     Kritériumok:
     - Négyszögletű forma
-    - Aspekt-arány: 1.5:1 - 6:1 (nemzetközi variációkhoz)
-    - Terület: 50 - (kép területének 50%)
+    - Aspekt-arány: 1.5:1 - 5:1 (lazább)
+    - Terület: 0.1% - 10% a kép területének (lazább)
+    - Solidity: legalább 0.5 (lazább)
     """
     peri = cv2.arcLength(cnt, True)
     approx = cv2.approxPolyDP(cnt, 0.018 * peri, True)
@@ -75,7 +74,7 @@ def is_valid_plate(cnt, image_width, image_height):
     x, y, w, h = cv2.boundingRect(approx)
     aspect_ratio = float(w) / h if h > 0 else 0
     
-    if aspect_ratio < 1.5 or aspect_ratio > 6.0:
+    if aspect_ratio < 1.5 or aspect_ratio > 5.0:
         return False
     
     area = cv2.contourArea(cnt)
@@ -88,19 +87,92 @@ def is_valid_plate(cnt, image_width, image_height):
 def is_valid_text(text):
     """Ellenőrzi, hogy a felismert szöveg valódi rendszám-e.
     
-    Támogatott formátumok:
-    - Magyar: XXX-XXX-NNN
-    - Nemzetközi: XXX-NNN, XXX-XXXX, XXXXXXX stb.
-    - Szláv: MOCKBAZ (7+ karakter)
-    
-    Kritériumok: 3-13 karakter, csak alfanumerikus és kötőjel
+    Kiegyensúlyozott validáció: több formátumot elfogad, de nem hamis pozitívokat.
     """
-    text = text.strip()
+    import re
+    text = text.strip().upper()
     
-    if not (3 <= len(text) <= 13):
+    # Hossz ellenőrzés
+    if len(text) < 5 or len(text) > 10:
         return False
     
-    return all(c.isalnum() or c == '-' for c in text)
+    # Csak alfanumerikus és kötőjel
+    if not all(c.isalnum() or c == '-' for c in text):
+        return False
+    
+    # Dupla kötőjel vagy kötőjel az elején/végén = hamis
+    if '--' in text or text.startswith('-') or text.endswith('-'):
+        return False
+    
+    # Max 2 kötőjel
+    if text.count('-') > 2:
+        return False
+    
+    # Magyar formátum: ABC-ABC-123 vagy ABC-DEF-NNN
+    if re.match(r'^[A-Z]{2,3}-[A-Z]{2,3}-\d{3}$', text):
+        return True
+    
+    # Nemzetközi formátumok
+    # AB-123, ABC-123, ABC-1234, ABCD-1234
+    if re.match(r'^[A-Z]{2,4}-?\d{3,4}$', text):
+        return True
+    
+    # Észt/Szláv: NLE-INN, AAA-NNN  
+    if re.match(r'^[A-Z]{2,3}-\d{3}$', text):
+        return True
+    
+    # Vegyes formátumok 5-8 karakter hosszúak
+    if 5 <= len(text) <= 8:
+        alpha_count = sum(1 for c in text if c.isalpha())
+        digit_count = sum(1 for c in text if c.isdigit())
+        # Legalább 2 betű és 2 szám
+        if alpha_count >= 2 and digit_count >= 2:
+            return True
+    
+    return False
+
+
+def validate_plate(text):
+    """Post-processing: szigorú regex alapú validáció."""
+    import re
+    text = text.strip().upper()
+    
+    # Túl rövid vagy túl hosszú
+    if len(text) < 6 or len(text) > 10:
+        return False
+    
+    # Csak alfanumerikus és kötőjel megengedett
+    if not all(c.isalnum() or c == '-' for c in text):
+        return False
+    
+    # Nem lehet túl sok kötőjel (max 2)
+    if text.count('-') > 2:
+        return False
+    
+    # Magyar formátum: ABC-DEF-123
+    if re.match(r'^[A-Z]{3}-[A-Z]{3}-\d{3}$', text):
+        return True
+    
+    # Nemzetközi: ABC-1234, ABC1234
+    if re.match(r'^[A-Z]{2,3}-?\d{3,4}$', text):
+        return True
+    
+    # NLE-XXX formátum (észt, szláv)
+    if re.match(r'^[A-Z]{2,3}-\d{3}$', text):
+        return True
+    
+    # Más egységes formátumok (6-8 karakter, vegyes)
+    if 6 <= len(text) <= 8:
+        alpha_count = sum(1 for c in text if c.isalpha())
+        digit_count = sum(1 for c in text if c.isdigit())
+        dash_count = text.count('-')
+        # Legalább 3 betű, 2 szám, és a kötőjel-karakterek nem szomszédosak
+        if alpha_count >= 3 and digit_count >= 2 and dash_count <= 1:
+            # Nincs dupla kötőjel vagy kötőjel az elején/végén
+            if '--' not in text and not text.startswith('-') and not text.endswith('-'):
+                return True
+    
+    return False
 
 
 def find_all_plates(edged, image_width, image_height):
@@ -193,21 +265,24 @@ def recognize_plates(image_path):
         coords = np.where(mask == 255)
         cropped = gray[coords[0].min():coords[0].max()+1, coords[1].min():coords[1].max()+1]
         
+        # OCR előtt előkészítés
+        cropped = cv2.resize(cropped, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        _, cropped = cv2.threshold(cropped, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
         # Többszörös PSM módok kipróbálása
         best_text = ""
         best_length = 0
-        
         for psm in [6, 7, 8, 11, 13]:
             try:
                 config = f"--psm {psm} --oem 3 -c tessedit_char_whitelist={SUPPORTED_CHARS}"
                 text = pytesseract.image_to_string(cropped, config=config).strip()
                 
-                # Tisztítás: minden nem-alfanumerikus eltávolítása (cseppsz kívül)
+                # Tisztítás: minden nem-alfanumerikus eltávolítása (kivéve kötőjel)
                 text = re.sub(r'\n', '', text)
                 clean_text = ''.join(c for c in text if c.isalnum() or c == '-')
                 
-                # Preferencia: magyar 9-karakteres formátum
-                if len(clean_text) == 9 and clean_text.count('-') == 2:
+                # Post-processing: regex ellenőrzés
+                if validate_plate(clean_text):
                     best_text = clean_text
                     break
                 elif len(clean_text) > best_length:
