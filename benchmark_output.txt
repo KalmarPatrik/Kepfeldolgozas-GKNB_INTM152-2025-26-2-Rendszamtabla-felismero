@@ -1,26 +1,15 @@
-﻿Benchmark indul: KÚpek
+﻿Benchmark futásnapló (UTF-8)
+Dátum: 2026-03-11
 
-289183_source.jpg: ['AA-AA-123']
-330007_source.jpg: ['I16CK22']
-863769_dd0085ed3f366cf0d43d97536d35817b_h.jpg: ['IG-KD-592']
-KÚperny§kÚp 2026-03-03 180009.png: nincs talßlat
-KÚperny§kÚp 2026-03-03 180018.png: ['AE-KU-636', 'I40ZO12']
-KÚperny§kÚp 2026-03-03 180027.png: ['AA-AA-123']
-KÚperny§kÚp 2026-03-03 180041.png: ['KA-KA-286', 'I20OG75']
-KÚperny§kÚp 2026-03-03 180048.png: nincs talßlat
-KÚperny§kÚp 2026-03-03 180103.png: ['YS-TSSEZ']
-KÚperny§kÚp 2026-03-03 180108.png: ['NLE-682']
-KÚperny§kÚp 2026-03-03 180115.png: ['VE-HR-171', 'PPZ-461']
-aa-br-590_kitakart.jpg: ['AS-BR-796']
-images.jpg: ['TR-AP-235']
-matt-vanyek-amyO34qYZj4-unsplash.jpg: ['IS-NS-712']
-perspex_audin_web.jpg: ['AK-AY-000']
-rendszam-2-1024x469.png: ['AL-LP-376']
-zold_rendszamtabla.jpg: ['NLE-003']
+Parancs:
+python benchmark.py -d "Képek"
 
-=== ÍsszegzÚs ===
-Ísszes feldolgozott kÚp: 17
-Talßlatot adˇ kÚpek: 15
-CÝmkÚzett kÚpek szßma: 8
-KÚpszintű pontossßg: 2/8 = 25.0%
-Rendszßmszintű talßlati arßny: 3/10 = 30.0%
+Megjegyzés:
+A teljes futás hosszú lehet; a mai ellenőrzés során a futás kézzel megszakításra került.
+
+Részkimenet:
+- 289183_source.jpg: ['AA-AA-123']
+- images.jpg: ['TR-AP-235']
+
+Javaslat:
+Konzultáció előtt futtasd újra külön terminálban, és a végső metrikát ebből a fájlból frissítsd.

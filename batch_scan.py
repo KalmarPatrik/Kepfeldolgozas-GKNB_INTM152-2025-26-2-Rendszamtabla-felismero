@@ -1,9 +1,8 @@
 """Batch feldolgozás a Képek mappában található képekre.
 
 A program beolvassa a könyvtár összes fájlját és minden képen megpróbálja
-felismerni a rendszámot a `main.recognize_plate` függvénnyel.
-A kimenetet könnyen át lehet nézni a terminálban, hasonló formátumban,
-melyből könnyen készülhet jelentmezonysejtett.
+felismerni a rendszámot a `main.recognize_plates` függvénnyel.
+A kimenet képenként listázza a találatokat, majd egy összegzést ad.
 
 Használat:
     python batch_scan.py [--dir PATH]
@@ -16,9 +15,10 @@ Példa:
     python batch_scan.py -d "C:\\images" # Másik mappa
 
 Kimenet példa:
-    Képernyőkép 2026-03-03 180009.png: nincs tábla
-    Képernyőkép 2026-03-03 180018.png: ABC1234
-    Képernyőkép 2026-03-03 180027.png: hiba (nem képfájl)
+    [OK] kép1.png:
+       1. AA-AB-123
+    [-] kép2.jpg: nincs tábla
+    [!] kép3.png: hiba (...)
 """
 
 import argparse

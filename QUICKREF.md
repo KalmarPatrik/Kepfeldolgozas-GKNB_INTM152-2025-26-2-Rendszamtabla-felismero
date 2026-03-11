@@ -1,66 +1,42 @@
-# Gyors Referencia
+﻿# Gyors Referencia
 
-## Indulás 30 másodperc alatt
+## 30 másodperces indulás
 
 ```powershell
-# 1. Virtual environment
 python -m venv .venv
-./.venv/Scripts/Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
-# 2. Csomagok telepítése
+# Ha tiltott script futtatás hiba van:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+
 pip install -r requirements.txt
-
-# 3. Tesseract telepítése
-# Letöltés: https://github.com/UB-Mannheim/tesseract/wiki
-
-# 4. Futtatás!
-python main.py -i "photo.jpg"
+python main.py -i "Képek\images.jpg"
 ```
-
----
 
 ## Parancsok
 
 | Feladat | Parancs |
-|--------|---------|
-| **Egyetlen kép** | `python main.py -i "image.jpg"` |
-| **Egyetlen kép (verbos)** | `python main.py -i "image.jpg" -v` |
-| **Képek mappa** | `python batch_scan.py` |
-| **Más mappa** | `python batch_scan.py --dir "C:\images"` |
-| **Venv kilépés** | `deactivate` |
+|---|---|
+| Egy kép | `python main.py -i "image.jpg"` |
+| Egy kép, részletes | `python main.py -i "image.jpg" -v` |
+| Képmappa | `python batch_scan.py` |
+| Más mappa | `python batch_scan.py -d "C:\images"` |
+| Benchmark | `python benchmark.py` |
+| Aktiválás nélkül | `.\.venv\Scripts\python.exe main.py -i "image.jpg"` |
+| Venv kilépés | `deactivate` |
 
----
+## Kimenet minták
 
-## Kimeneti Formátumok
-
-### main.py - Egy rendszám:
-```
-Felismert rendszám: ABC123
-```
-
-### main.py - Több rendszám:
-```
-Felismert 2 rendszám:
-  1. ABC123
-  2. XYZ789
+```text
+Felismert rendszám: AA-AB-123
 ```
 
-### main.py - Verbose módban (-v):
-```
-Felismert 2 rendszám:
-  1. ABC123
-  2. XYZ789
-```
-
-### batch_scan.py:
-```
+```text
 [OK] photo.jpg:
-   1. ABC123
-   2. XYZ789
-
+   1. AA-AB-123
 [-] photo2.jpg: nincs tábla
-
-[!] bad.jpg: hiba (can't open file)
+[!] bad.jpg: hiba (...)
 
 === Feldolgozás kész ===
 Feldolgozva: 9 kép
@@ -68,60 +44,32 @@ Talált rendszámok: 3
 Hibás: 0
 ```
 
----
+## Mit csinál a projekt
 
-## Fontosabb Koncepciók
+- Több rendszámot is keres egy képen.
+- A találatokat balról jobbra rendezi.
+- Formátum-alapú pontozással csökkenti a hamis pozitívokat.
 
-### Több Rendszám Felismerése
-- A program automatikusan több rendszámtáblát talál meg egy képen
-- Bal-jobb szerinti sorrendben vannak sorszámozva
-- Valódiság-szűrés: csak érvényes rendszámokat mutat
-
-### Valódiság Kritériumok
-- **Forma:** Négyszögletű kell lenni
-- **Arány:** 1.5:1 - 6:1 közötti hosszúsági/magassági arány
-- **Szöveg:** 3-7 alfanumerikus karakter, legalább 1 betű és 1 szám
-- **Rendezés:** Képen balról jobbra (pozíció szerinti)
-
----
-
-## Hibamegoldás
+## Gyors hibakeresés
 
 | Hiba | Megoldás |
-|------|----------|
-| "tesseract is not installed" | Telepítsd: https://github.com/UB-Mannheim/tesseract/wiki |
-| "No module named 'cv2'" | `pip install opencv-python` |
-| "Nem található a kép" | Használj teljes elérési útat |
-| Unicode hiba | Használj UTF-8 kódolást |
+|---|---|
+| `running scripts is disabled` | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` |
+| `No module named 'cv2'` | `pip install -r requirements.txt` |
+| `tesseract is not installed` | Tesseract telepítés: UB Mannheim oldal |
+| Kép nem nyitható | Ellenőrizd az útvonalat, használj abszolút path-t |
 
----
+## Fájlok
 
-## Tippek
-
-1. **Lassú feldolgozás?** Ez normális, OCR erőforrátigényes (~1-3 mp/kép)
-2. **Rossz felismerés?** Tiszta, nagy kontrasztú képeket használ
-3. **Több kép?** batch_scan.py gyorsabb
-4. **Saját karakterek?** SUPPORTED_CHARS módosítása
-
----
-
-## Fájlszerkezet
-
+```text
+main.py
+batch_scan.py
+benchmark.py
+requirements.txt
+README.md
+SETUP.md
+TECHNICAL.md
+SUMMARY.md
+DIAGNOSIS.md
+Képek/
 ```
-projekt/
-├── main.py                    # Fő program
-├── batch_scan.py              # Kötegelt feldolgozás
-├── image_scanner.py           # Kép-metaadat olvasó
-├── requirements.txt           # Python függőségek
-├── README.md                  # Teljes dokumentáció
-├── SETUP.md                   # Telepítési útmutató
-├── QUICKREF.md                # Ez a fájl
-└── Képek/                     # Bemenet képek
-    ├── photo1.jpg
-    ├── photo2.jpg
-    └── ...
-```
-
----
-
-**További help: SETUP.md vagy README.md!**

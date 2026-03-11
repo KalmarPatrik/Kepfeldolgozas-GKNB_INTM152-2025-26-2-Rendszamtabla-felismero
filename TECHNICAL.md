@@ -1,1 +1,99 @@
-# Technikai Dokumentáció – Rendszámtábla Felismerő\n\n## 📐 Feldolgozási Pipeline Részletesen\n\n### 1. **Előfeldolgozás** (`preprocess_image`)\n\n```\nBemeneti RGB kép\n      ↓\n[BGR → Szürke átalakítás]\n  cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)\n      ↓\n[Bilaterális szűrés]\n  cv2.bilateralFilter(gray, 11, 17, 17)\n  - Bilaterális szűrő: Zajcsökkentés az élek megőrzésével\n  - Kernel méret: 11×11 pixe\n  - Sigma térben: σ_d = 17\n  - Sigma értékekben: σ_r = 17\n      ↓\n[Canny Él-detektálás]\n  cv2.Canny(gray, 30, 200)\n  - Alsó küszöb: 30\n  - Felső küszöb: 200\n      ↓\nBináris élkép\n```\n\n### 2. **Kontúrdetektálás** (`find_plate_contour`)\n\n```\nBináris élkép\n      ↓\n[Kontúrok keresése]\n  cv2.findContours(edged, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)\n      ↓\n[Terület szerinti rendezés]\n  sorted(contours, key=cv2.contourArea, reverse=True)[:30]\n  - Csak a 30 legnagyobb kontúr\n      ↓\n[Négyszögletű közelítés]\n  for cnt in contours:\n      peri = cv2.arcLength(cnt, True)\n      approx = cv2.approxPolyDP(cnt, 0.018 * peri, True)\n      if len(approx) == 4:  ← 4 sarokpont!\n          return approx\n      ↓\nRendszámtábla kontúr (ha létezik)\n```\n\n### 3. **Maszkázás és Kivágás**\n\n```\nEredeti kép + Tábla kontúr\n      ↓\n[Maszk készítés]\n  mask = np.zeros(gray.shape, np.uint8)\n  cv2.drawContours(mask, [plate_cnt], 0, 255, -1)\n      ↓\n[Bounding box keresés]\n  (x, y) = np.where(mask == 255)\n  topx, topy = min(x), min(y)\n  bottomx, bottomy = max(x), max(y)\n      ↓\n[Kivágás]\n  cropped = gray[topx:bottomx+1, topy:bottomy+1]\n      ↓\nKivágott szürkeárnyalatos kép\n```\n\n### 4. **OCR (Tesseract)**\n\n```\nKivágott kép\n      ↓\n[Tesseract konfiguráció]\n  config = \"--psm 8 --oem 3 -c tessedit_char_whitelist=ABC...0123456789\"\n  \n  --psm 8:  Treat image as a single word\n  --oem 3:  1 = Legacy\n           2 = Neural nets only\n           3 = Legacy + Neural nets (HYBRID) ← NE\n      ↓\n[Szövegfelismerés]\n  text = pytesseract.image_to_string(cropped, config=config)\n      ↓\n[Tisztítás]\n  text = text.strip()\n      ↓\nFelismert szöveg (pl. \"ABC1234\")\n```\n\n---\n\n## 🔌 Függőségek és Verziók\n\n| Csomag | Verzió | Célkitűzés |\n|--------|--------|------------|\n| `python` | 3.8+ | Futtatási környezet |\n| `opencv-python` | 4.x | Képfeldolgozás, kont.\ndetektálás |\n| `numpy` | 1.x | Numerikus számítások |\n| `Pillow` | 8.x+ | Kép I/O, metaadatok |\n| `scikit-image` | 0.x | Halad fogaadott feldolgozás |\n| `pytesseract` | 0.3.x | Tesseract Python csatoló |\n| `Tesseract OCR` | 5.x | Szövegfelismerés (külön telepítés!) |\n\n---\n\n## 🎯 OCR Beállítások (Advanced)\n\n### PSM (Page Segmentation Mode)\n\n- **0**: OSD only\n- **1**: Automatic page segmentation with OSD\n- **2**: Automatic page segmentation, but no OSD\n- **3**: Fully automatic page segmentation, but no OSD (DEFAULT)\n- **4**: Assume a single column of text of variable sizes\n- **5**: Assume a single uniform block of vertically aligned text\n- **6**: Assume a single uniform block of text\n- **7**: Treat the image as a single text line\n- **8**: Treat the image as a single word ← **NE** (legjobb rendszámokhoz)\n- **9**: Treat the image as a single word in a circle\n- **10**: Treat the image as a single character\n- **11**: Sparse text. Find as much text as possible in no particular order\n- **12**: Sparse text with OSD\n- **13**: Raw line. Treat the image as a single text line\n\n### OEM (OCR Engine Mode)\n\n- **0**: Legacy engine only\n- **1**: Neural nets LSTM engine only\n- **2**: Legacy + LSTM engines in sequence\n- **3**: Legacy + LSTM engines in parallel (HYBRID) ← **Használt**\n\n---\n\n## 📊 Kimenet Formátumok\n\n### Sikeres futtatás\n```\nFelismert rendszám: ABC1234D\n```\n\n### Nincs tábla\n```\nNem találtam rendszámtáblát a képen.\n```\n\n### Hiba\n```\nHiba: [részletes hibaüzenet]\n```\n\n---\n\n## 🔐 Error Handling Hierarchia\n\n```python\nif image is None:\n    → FileNotFoundError\n    \nif plate_cnt is None:\n    → return None (nincs tábla)\n    \nif Tesseract error:\n    → RuntimeError (OCR nem elérhető)\n    \nGeneral exceptions:\n    → Caught and displayed to user\n```\n\n---\n\n## 💾 Memória- és CPU-felhasználás\n\n### Tipikus képre (1920×1080)\n- **Memória:**\n  - OpenCV feldolgozás: ~50 MB\n  - Runtime total: ~100-150 MB\n- **CPU:** ~30-50% monophthongcore\n- **Idő:** ~2-3 másodperc első futtatáskor (Tesseract load)\n         ~0.5-1 másodperc további futtatásokkor\n\n### Nagyobb képekre (4000×2000+)\n- **Memória:** ~200-300 MB\n- **Idő:** ~5-10 másodperc\n\n---\n\n## 🪟 Windows-specifikus Problémák\n\n### 1. **Unicode Karakterek Fájlnevekben**\n\nOpenCV `cv2.imread()` nem támogatja a magyar karaktereket (ő, ö, ű) közvetlenül.\n\n**Megoldás:**\n```python\nimport cv2\nimport numpy as np\n\n# Helyett: cv2.imread(path)\n# Használd: cv2.imdecode()\nwith open(path, 'rb'm') as f:\n    image_data = f.read()\nimage = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), \n                     cv2.IMREAD_COLOR)\n```\n\n### 2. **Tesseract PATH Problémák**\n\nWindows nem találja a Tesseractot, ha nincs a PATH-ban.\n\n**Megoldás:**\n```python\nfrom pytesseract import pytesseract\npytesseract.pytesseract_cmd = r'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'\n```\n\n### 3. **Virtual Environment**\n\nPowerShell végrehajtási házirend esetleg blokkolhat.\n\n**Megoldás:**\n```powershell\nSet-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser\n```\n\n---\n\n## 🧪 Tesztelési Paraméterek\n\n### Teszt-kép Követelmények\n\n| Paraméter | Min | Ideális |\n|-----------|-----|--------|\n| **Felbontás** | 80×24 px | 200×60 px |\n| **Kontraszt** | >50% | >70% |\n| **Szög** | <30° | <5° |\n| **Megvilágítás** | 50 lux | 500+ lux |\n| **Tábla %** | 5% | 15-30% |\n\n---\n\n## 📝 Naplózás és Debugging\n\n### OpenCV Debugolás\n```python\nimport cv2\n\n# Közběni képek mentése\ncv2.imwrite('debug_gray.png', gray)\ncv2.imwrite('debug_edged.png', edged)\ncv2.imwrite('debug_mask.png', mask)\n```\n\n### Tesseract Debugolás\n```python\nimport pytesseract\n\n# Tessaract verzió\nprint(pytesseract.get_tesseract_version())\n\n# Elérhető nyelvek\nprint(pytesseract.get_languages())\n```\n\n---\n\n## 📚 Hasznos Referenciák\n\n- **OpenCV Docs:** https://docs.opencv.org/\n- **Tesseract Wiki:** https://github.com/UB-Mannheim/tesseract/wiki\n- **pytesseract:** https://github.com/madmaze/pytesseract\n- **NumPy:** https://numpy.org/doc/\n\n---\n\n**Ez a dokument a projekt technikai részleteit írja le. Felhasználók számára lásd a `SETUP.md` és `README.md` fájlokat!**\n"
+﻿# Technikai Dokumentáció
+
+## Áttekintés
+
+A rendszer klasszikus képfeldolgozási és OCR pipeline-t használ, amelyet formátum-alapú pontozás egészít ki.
+A fő belépési pont a `main.py`.
+
+## Pipeline lépések
+
+1. `read_image(image_path)`
+- Unicode-biztos képbeolvasás (`cv2.imdecode`) Windows alatt.
+
+2. `preprocess_image(image)`
+- Szürkeárnyalat
+- `fastNlMeansDenoising`
+- CLAHE
+- Bilateral filter
+- Adaptív Canny (`adaptive_canny`)
+
+3. `find_plate_regions(gray, edged)`
+- Több csatornás jelöltkeresés:
+  - edge alapú kontúrok
+  - blackhat maszk
+  - adaptive threshold maszk
+- `is_valid_plate` + `region_score`
+- IoU alapú deduplikáció
+- max. `MAX_CANDIDATES` régió
+
+4. `extract_plate_crops(gray, region)`
+- Min area rectangle -> pontsorrend -> perspektívakorrekció
+- Kiegészített bounding-box kivágás
+
+5. `recognize_crop(crop, roi_score)`
+- Több OCR-variáns (`generate_ocr_variants`)
+- Több PSM (`OCR_PSMS = (7, 8, 13)`)
+- `pytesseract.image_to_data` konfidenciával
+
+6. `score_candidates(compact_text, raw_text, confidence, roi_score)`
+- Szigorú és kiterjesztett minták (`STRICT_PATTERNS`, `EXTENDED_PATTERNS`)
+- Karakterkorrekció (`DIGIT_TO_LETTER`, `LETTER_TO_DIGIT`)
+- Szabálypontozás, trimming büntetés, szeparátor bónusz
+
+7. `remove_duplicate_plates(results)`
+- Szöveg- és átfedés alapú deduplikáció
+- Végső rendezés balról jobbra
+
+## Publikus függvények
+
+- `recognize_plate(image_path) -> Optional[str]`
+- `recognize_plates(image_path) -> list[dict]`
+
+`recognize_plates` visszatérési elemei:
+- `pozicio`: balról-jobbra index
+- `szam`: normalizált rendszám
+
+## CLI
+
+`main.py`
+
+```powershell
+python main.py -i "Képek\images.jpg" [-v]
+```
+
+`batch_scan.py`
+
+```powershell
+python batch_scan.py [-d "Képek"]
+```
+
+`benchmark.py`
+
+```powershell
+python benchmark.py [-d "Képek"]
+```
+
+## Konfigurációs konstansok (`main.py`)
+
+- `SUPPORTED_CHARS`
+- `OCR_TIMEOUT_SECONDS`
+- `OCR_PSMS`
+- `MAX_CANDIDATES`
+- `DEFAULT_TESSERACT_PATH`
+
+## Tesseract kezelés
+
+- Ha létezik: `C:\Program Files\Tesseract-OCR\tesseract.exe`, automatikusan használja.
+- Egyéb esetben a rendszer `PATH` alapján keresi.
+
+## Ismert technikai korlátok
+
+- OCR timeout miatt egyes nehéz képek lassabban futnak.
+- A benchmark teljes képkészleten időigényes.
+- A szabályalapú mintaillesztés miatt extrém formátumoknál hamis negatív előfordulhat.
+
+## Debug eszközök
+
+- `debug_plates.py`: OCR variánsok és PSM viselkedés
+- `debug_crops.py`: valid kontúrok kivágása
+- `debug_visuals.py`: edge és kontúr vizualizáció
